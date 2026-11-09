@@ -1,0 +1,78 @@
+// docx에 복붙한 내용이 $....$ 이렇게 raw text로 보일 때, 모두 LaTeX 적용되게 하는 docx 매크로
+
+Sub ConvertLatexToEquations()
+    Dim objDoc As Document
+    Dim objRange As Range
+    Dim objOMath As OMath
+    Dim originalText As String
+    
+    Set objDoc = ActiveDocument
+    
+    ' ========================================================
+    ' STAGE 1: Process $$ ... $$ (Display Equations) First
+    ' ========================================================
+    Set objRange = objDoc.Content
+    objRange.Find.ClearFormatting
+    
+    Do
+        With objRange.Find
+            ' Find text enclosed within double dollar signs $$ ... $$
+            .Text = "\$\$(*)\$\$"
+            .MatchWildcards = True
+            .Forward = True
+            .Wrap = wdFindStop
+            .Execute
+        End With
+        
+        If Not objRange.Find.Found Then Exit Do
+        
+        ' Strip the leading and trailing $$ delimiters (4 characters total)
+        originalText = objRange.Text
+        objRange.Text = Mid(originalText, 3, Len(originalText) - 4)
+        
+        ' Add to Word's math collection
+        Set objOMath = objDoc.OMaths.Add(objRange).OMaths(1)
+        
+        ' Set as Display type (centered standalone block) and build up
+        objOMath.Type = wdOMathDisplay
+        objOMath.BuildUp
+        
+        ' Collapse range to avoid infinite loops and continue searching
+        objRange.Collapse wdCollapseEnd
+    Loop
+    
+    ' ========================================================
+    ' STAGE 2: Process $ ... $ (Inline Equations) Next
+    ' ========================================================
+    Set objRange = objDoc.Content
+    objRange.Find.ClearFormatting
+    
+    Do
+        With objRange.Find
+            ' Find text enclosed within single dollar signs $ ... $
+            .Text = "\$(*)\$"
+            .MatchWildcards = True
+            .Forward = True
+            .Wrap = wdFindStop
+            .Execute
+        End With
+        
+        If Not objRange.Find.Found Then Exit Do
+        
+        ' Strip the leading and trailing $ delimiters (2 characters total)
+        originalText = objRange.Text
+        objRange.Text = Mid(originalText, 2, Len(originalText) - 2)
+        
+        ' Add to Word's math collection
+        Set objOMath = objDoc.OMaths.Add(objRange).OMaths(1)
+        
+        ' Set as Inline type (embedded within text flow) and build up
+        objOMath.Type = wdOMathInline
+        objOMath.BuildUp
+        
+        ' Collapse range to continue searching
+        objRange.Collapse wdCollapseEnd
+    Loop
+    
+    MsgBox "All LaTeX formulas ($$ and $) have been converted successfully.", vbInformation, "Task Completed"
+End Sub
